@@ -1,0 +1,225 @@
+local TweenService = game:GetService("TweenService")
+local TextService = game:GetService("TextService")
+local CollectionService = game:GetService("CollectionService")
+local Debris = game:GetService("Debris")
+
+local player = game.Players.LocalPlayer
+
+local function getColor(timeLength, points)
+	local data1 = points[1]
+	local allPoints = points[#points]
+	local newPoint = 0.5
+	local value = data1.Value
+	for i = 1, #points - 1 do
+		if points[i].Time <= timeLength and timeLength <= points[i + 1].Time then
+			data1 = points[i]
+			allPoints = points[i + 1]
+			newPoint = (timeLength - data1.Time) / (allPoints.Time - data1.Time)
+			return (data1.Value:lerp(allPoints.Value, newPoint))
+		end
+	end
+	return value
+end
+
+local function EndDialogue(gui)
+	for _, v in gui:GetChildren() do
+		if v.Name == "letter" then
+			v:SetAttribute("Ending", true)
+			TweenService:Create(v, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+				Position = v.Position + UDim2.new(0, 0, 0, 50),
+				TextTransparency = 1,
+				TextStrokeTransparency = 1
+			}):Play()
+			Debris:AddItem(v, 0.5)
+		end
+	end
+end
+
+local function CreateDialogue(data, model, customSettings)
+	model = model or game:GetObjects("rbxassetid://74714833540240")[1]
+	customSettings = customSettings or {}
+	
+	local DialogueUI = player.PlayerGui:FindFirstChild(model.Name .. "CUSTOM_DIALOGUE") or model:WaitForChild("CUSTOM_DIALOGUE"):Clone()
+	local text = ""
+	local posY = 0
+	local posX = 0
+	local Time = 0
+	
+	local defaultImage = customSettings.Image or "rbxassetid://107469728452026"
+	local imageEffects = customSettings.ImageEffects or {}
+	
+	if not DialogueUI:GetAttribute("Created") then
+		local Template = DialogueUI:WaitForChild("Holder"):WaitForChild("Template")
+		local Holder = DialogueUI.Holder
+		Holder.Position = Holder.Position - UDim2.new(0, 0, 0, 100 * #CollectionService:GetTagged("CUSTOM_DIALOGUE"))
+		
+		local imageLabel = Template:WaitForChild("ImageLabel")
+		imageLabel.Position = imageLabel.Position - UDim2.new(0, 0, 0, 100)
+		imageLabel.ImageTransparency = 1
+		imageLabel.Image = defaultImage
+		
+		for prop, value in pairs(imageEffects) do
+			if imageLabel[prop] ~= nil then
+				imageLabel[prop] = value
+			end
+		end
+		
+		local nameLabel = Template:WaitForChild("Name")
+		nameLabel.Position = nameLabel.Position - UDim2.new(0, 0, 0, 100)
+		nameLabel.TextTransparency = 1
+		nameLabel.TextStrokeTransparency = 1
+		
+		TweenService:Create(imageLabel, TweenInfo.new(1, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+			Position = imageLabel.Position + UDim2.new(0, 0, 0, 100),
+			ImageTransparency = 0
+		}):Play()
+		
+		TweenService:Create(nameLabel, TweenInfo.new(1, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+			Position = nameLabel.Position + UDim2.new(0, 0, 0, 100),
+			TextTransparency = 0,
+			TextStrokeTransparency = 0
+		}):Play()
+		
+		task.spawn(function()
+			DialogueUI:SetAttribute("Created", os.clock())
+			repeat task.wait() until os.clock() - DialogueUI:GetAttribute("Created") > 5 or not DialogueUI.Parent
+			DialogueUI.Name = "deleting"
+			EndDialogue(DialogueUI.Holder.Template)
+			
+			TweenService:Create(imageLabel, TweenInfo.new(1, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {
+				Position = imageLabel.Position - UDim2.new(0, 0, 0, 100),
+				ImageTransparency = 1
+			}):Play()
+			
+			TweenService:Create(nameLabel, TweenInfo.new(1, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {
+				Position = nameLabel.Position - UDim2.new(0, 0, 0, 100),
+				TextTransparency = 1,
+				TextStrokeTransparency = 1
+			}):Play()
+			
+			task.delay(1, function() DialogueUI:Destroy() end)
+		end)
+	else
+		DialogueUI:SetAttribute("Created", os.clock())
+	end
+	
+	DialogueUI.Parent = player.PlayerGui
+	DialogueUI.Enabled = true
+	DialogueUI.Name = model.Name .. "CUSTOM_DIALOGUE"
+	CollectionService:AddTag(DialogueUI, "CUSTOM_DIALOGUE")
+	
+	DialogueUI:WaitForChild("Holder"):WaitForChild("Template"):WaitForChild("Name").Text = player.Name
+	
+	for _, v in data do
+		text = text .. v.Text
+	end
+	
+	local isHigh = false
+	for _, v in data do
+		if v.HigherUp then
+			isHigh = true
+			TweenService:Create(DialogueUI.Holder, TweenInfo.new(0.2), {Position = UDim2.new(0.5, 0, 0.965, 0)}):Play()
+		end
+	end
+	
+	if not isHigh and DialogueUI.Holder.Position ~= UDim2.new(0.5, 0, 1, 0) then
+		TweenService:Create(DialogueUI.Holder, TweenInfo.new(1), {Position = UDim2.new(0.5, 0, 1, 0)}):Play()
+	end
+	
+	EndDialogue(DialogueUI.Holder.Template)
+	
+	for _, v in data do
+		local split = string.split(v.Text, "")
+		local font = v.Bold and Enum.Font.SourceSansBold or v.Italic and Enum.Font.SourceSansItalic or Enum.Font.SourceSans
+		for _, b in split do
+			posY = posY + TextService:GetTextSize(b, 25, font, Vector2.new(100, 100)).X
+		end
+	end
+	
+	for _, v in data do
+		local split = string.split(v.Text, "")
+		local font = v.Bold and Enum.Font.SourceSansBold or v.Italic and Enum.Font.SourceSansItalic or Enum.Font.SourceSans
+		for _, b in split do
+			local TextService_TextLabel = TextService:GetTextSize(b, 25, font, Vector2.new(100, 100))
+			local TextLabel = Instance.new("TextLabel")
+			local newPosY = posY
+			local newPosX = posX
+			
+			TextLabel.AnchorPoint = Vector2.new(0, 0.5)
+			TextLabel.Position = UDim2.new(0.5, newPosX - newPosY / 2, 0.5, 10)
+			TextLabel.Size = UDim2.new(0, TextService_TextLabel.X, 0, TextService_TextLabel.Y)
+			TextLabel.Text = b
+			TextLabel.Name = "letter"
+			TextLabel.Font = font
+			TextLabel.TextSize = 25
+			TextLabel.Parent = DialogueUI.Holder.Template
+			TextLabel.BackgroundTransparency = 1
+			TextLabel.TextStrokeColor3 = v.TextStrokeColor or Color3.fromRGB(0, 0, 0)
+			TextLabel.TextStrokeTransparency = 1
+			TextLabel.TextTransparency = 1
+			
+			task.delay(Time, function()
+				local osClock = os.clock()
+				repeat
+					local keyPointTime = math.min((os.clock() - osClock) / 0.35, 1)
+					local shakeLifeTime = math.min((os.clock() - osClock) / (v.Shake.Lifetime or 1), 1)
+					local currentShake = not v.Shake.Enabled and UDim2.new(0, 0, 0, 0) or UDim2.new(0, math.random(- (v.Shake.Intensity or 1), v.Shake.Intensity or 1) * (1 - shakeLifeTime), 0, math.random(- (v.Shake.Intensity or 1), v.Shake.Intensity or 1) * (1 - shakeLifeTime))
+					local textSettings = 1 - (1 + 2.70158 * math.pow(keyPointTime - 1, 3) + 1.70158 * math.pow(keyPointTime - 1, 2))
+					
+					TextLabel.TextStrokeTransparency = (1 - keyPointTime) ^ 10
+					TextLabel.TextTransparency = textSettings
+					TextLabel.TextSize = 25 + 25 * textSettings
+					TextLabel.TextColor3 = getColor(keyPointTime, v.Color.Keypoints)
+					TextLabel.Position = UDim2.new(0.5, newPosX - newPosY / 2, 0.5, 0) + currentShake
+					task.wait()
+				until os.clock() - osClock > math.max(0.35, v.Shake.Lifetime or 1) or not TextLabel or not TextLabel:IsDescendantOf(DialogueUI) or TextLabel:GetAttribute("Ending")
+				
+				if TextLabel then
+					TextLabel.TextStrokeTransparency = 0
+					TextLabel.TextTransparency = 0
+					TextLabel.TextSize = 25
+					TextLabel.TextColor3 = v.Color.Keypoints[#v.Color.Keypoints].Value
+					TextLabel.Position = UDim2.new(0.5, newPosX - newPosY / 2, 0.5, 0)
+				end
+			end)
+			
+			Time = Time + (v.TypeSpeed or 0.05)
+			posX = posX + TextService_TextLabel.X
+		end
+	end
+end
+
+local function parseTextToData(text)
+	local words = string.split(text, " ")
+	local data = {}
+	for _, word in ipairs(words) do
+		local cleanWord = word:gsub("%p", "")
+		local isCaps = (word == string.upper(cleanWord))
+		local entry = {
+			Text = word .. " ",
+			TypeSpeed = 0.05,
+			Bold = isCaps,
+			Italic = false,
+			TextStrokeColor = Color3.fromRGB(0, 0, 0),
+			Color = {Keypoints = {
+				ColorSequenceKeypoint.new(0, isCaps and Color3.fromRGB(255, 0, 0) or Color3.fromRGB(255, 255, 255)),
+				ColorSequenceKeypoint.new(1, isCaps and Color3.fromRGB(255, 0, 0) or Color3.fromRGB(255, 255, 255))
+			}},
+			Shake = {Enabled = isCaps, Intensity = 2, Lifetime = 0.5},
+			HigherUp = isCaps
+		}
+		table.insert(data, entry)
+	end
+	if #data > 0 then
+		data[#data].Text = data[#data].Text:sub(1, -2)
+	end
+	return data
+end
+
+getgenv().CreateDialogue = CreateDialogue
+getgenv().parseTextToData = parseTextToData
+getgenv().CustomDialogueLoaded = true
+
+_G.CreateDialogue = CreateDialogue
+_G.parseTextToData = parseTextToData
+_G.CustomDialogueLoaded = true
