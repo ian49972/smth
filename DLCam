@@ -716,7 +716,7 @@ local function freezeCamera()
 	camera.FieldOfView = originalCameraFOV
 end
 
-task.delay(8, freezeCamera)
+task.delay(9, freezeCamera)
 
 
 RunService:BindToRenderStep('FollowCinematic', Enum.RenderPriority.Camera.Value + 1, function(dt)
