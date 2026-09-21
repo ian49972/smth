@@ -706,7 +706,7 @@ local function freezeCamera()
 		end
 	end)
 
-	task.wait(5)
+	task.wait(6)
 
 	frozen = false
 	RunService:UnbindFromRenderStep('OvertimeCameraFreeze')
